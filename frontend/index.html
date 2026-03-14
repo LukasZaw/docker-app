@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Docker Compose Demo</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap");
+
+      :root {
+        --bg-1: #f5f1e8;
+        --bg-2: #d7f0e7;
+        --ink: #1d2a3b;
+        --accent: #e84a1a;
+        --accent-2: #0088a9;
+        --card: rgba(255, 255, 255, 0.82);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Space Grotesk", "Segoe UI", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at 10% 20%, #fff6df 0, transparent 40%),
+          radial-gradient(circle at 80% 0%, #d3f8ff 0, transparent 45%),
+          linear-gradient(120deg, var(--bg-1), var(--bg-2));
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+
+      .app {
+        width: min(760px, 100%);
+        background: var(--card);
+        border: 1px solid rgba(255, 255, 255, 0.6);
+        border-radius: 22px;
+        padding: clamp(20px, 3vw, 34px);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12);
+        backdrop-filter: blur(8px);
+        animation: enter 650ms ease-out;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(1.5rem, 3vw, 2.2rem);
+        letter-spacing: 0.02em;
+      }
+
+      .subtitle {
+        margin: 8px 0 24px;
+        opacity: 0.85;
+      }
+
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.95rem;
+        margin-bottom: 22px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: rgba(0, 136, 169, 0.1);
+      }
+
+      .status-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #45bf55;
+        box-shadow: 0 0 0 0 rgba(69, 191, 85, 0.55);
+        animation: pulse 2s infinite;
+      }
+
+      form {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+
+      input {
+        flex: 1;
+        border: 1px solid rgba(29, 42, 59, 0.2);
+        border-radius: 12px;
+        padding: 12px 14px;
+        font: inherit;
+        background: rgba(255, 255, 255, 0.75);
+      }
+
+      button {
+        border: 0;
+        border-radius: 12px;
+        padding: 12px 18px;
+        font: inherit;
+        font-weight: 700;
+        color: #fff;
+        background: linear-gradient(135deg, var(--accent), #ff7a2f);
+        cursor: pointer;
+        transition:
+          transform 120ms ease,
+          filter 120ms ease;
+      }
+
+      button:hover {
+        filter: brightness(1.06);
+      }
+
+      button:active {
+        transform: translateY(1px) scale(0.99);
+      }
+
+      ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 10px;
+      }
+
+      li {
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        border-radius: 12px;
+        padding: 12px;
+        background: rgba(255, 255, 255, 0.65);
+        transform: translateY(6px);
+        opacity: 0;
+        animation: reveal 360ms ease forwards;
+      }
+
+      .empty {
+        opacity: 0.65;
+      }
+
+      @media (max-width: 640px) {
+        form {
+          flex-direction: column;
+        }
+
+        button {
+          width: 100%;
+        }
+      }
+
+      @keyframes pulse {
+        0% {
+          box-shadow: 0 0 0 0 rgba(69, 191, 85, 0.55);
+        }
+        70% {
+          box-shadow: 0 0 0 10px rgba(69, 191, 85, 0);
+        }
+        100% {
+          box-shadow: 0 0 0 0 rgba(69, 191, 85, 0);
+        }
+      }
+
+      @keyframes enter {
+        from {
+          opacity: 0;
+          transform: translateY(16px) scale(0.98);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      @keyframes reveal {
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app">
+      <h1>Docker Compose Demo</h1>
+      <p class="subtitle">Frontend + backend + Database.</p>
+      <div class="status">
+        <span class="status-dot"></span>
+        <span id="health-status">Checking...</span>
+      </div>
+
+      <form id="message-form">
+        <input
+          id="message-input"
+          type="text"
+          maxlength="250"
+          placeholder="Enter message to save in database"
+          required
+        />
+        <button type="submit">Add</button>
+      </form>
+
+      <ul id="messages"></ul>
+    </main>
+
+    <script>
+      const healthStatus = document.getElementById("health-status");
+      const messagesList = document.getElementById("messages");
+      const form = document.getElementById("message-form");
+      const input = document.getElementById("message-input");
+
+      async function loadHealth() {
+        try {
+          const response = await fetch("/api/health");
+          if (!response.ok) {
+            throw new Error("Backend not healthy");
+          }
+
+          const data = await response.json();
+          healthStatus.textContent = `Backend: ${data.status}, DB: ${data.database}`;
+        } catch (error) {
+          healthStatus.textContent = "No connection to backend";
+        }
+      }
+
+      async function loadMessages() {
+        try {
+          const response = await fetch("/api/messages");
+          const messages = await response.json();
+          renderMessages(messages);
+        } catch (error) {
+          renderMessages([]);
+        }
+      }
+
+      function renderMessages(messages) {
+        messagesList.innerHTML = "";
+
+        if (!messages.length) {
+          const empty = document.createElement("li");
+          empty.className = "empty";
+          empty.textContent = "No messages. Add the first one.";
+          messagesList.appendChild(empty);
+          return;
+        }
+
+        messages.forEach((message, index) => {
+          const item = document.createElement("li");
+          item.style.animationDelay = `${index * 60}ms`;
+          item.textContent = `${message.content} (${new Date(message.created_at).toLocaleString()})`;
+          messagesList.appendChild(item);
+        });
+      }
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const content = input.value.trim();
+        if (!content) {
+          return;
+        }
+
+        await fetch("/api/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ content }),
+        });
+
+        input.value = "";
+        await loadMessages();
+      });
+
+      loadHealth();
+      loadMessages();
+      setInterval(loadHealth, 10000);
+    </script>
+  </body>
+</html>

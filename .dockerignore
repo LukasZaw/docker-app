@@ -3,3 +3,6 @@ npm-debug.log
 .git
 .gitignore
 README.md
+frontend
+db
+docker-compose.yml
